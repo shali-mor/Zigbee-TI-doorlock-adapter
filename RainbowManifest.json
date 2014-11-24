@@ -1,0 +1,18 @@
+{
+    "uuid": "2620537E-6F69-32A6-8592-008814F22B3A",
+    "name": "TI ZigBee DoorLock Controller",
+    "version_code": 17,
+    "version_name": "2.0.5",
+    "dist_names": [ "any" ],
+    "min_api_version": 1,
+    "auto_start": true,
+    "keep_alive": true,
+    "exec": [
+        {
+            "name": "Main",
+            "type": "lua",
+            "file": "ti_zigb_dl_ctrl_adapter.lua",
+            "mode": "keep_alive"
+        }
+    ]
+}
