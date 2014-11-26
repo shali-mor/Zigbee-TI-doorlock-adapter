@@ -53,6 +53,49 @@ local function door_lock_connected(door_lock)
   )
 end
 
+local function handle_door_lock_service_enabled(changeset)
+  if type(changeset.characteristics[dev.characteristic.ENABLED]) == "boolean" then
+    if door_lock_service_enabled ~= changeset.characteristics[dev.characteristic.ENABLED] then
+      door_lock_service_enabled = changeset.characteristics[dev.characteristic.ENABLED] 
+      log.d("Door Lock service enable flag changed to " .. tostring(door_lock_service_enabled))
+    end
+  end
+  
+  return changeset
+end
+
+local function handle_guard_enabled(changeset)
+  if type(changeset.characteristics[dev.characteristic.GUARD_ENABLED]) == "boolean" then
+    if door_lock_guard_enabled ~= changeset.characteristics[dev.characteristic.GUARD_ENABLED] then
+      door_lock_guard_enabled = changeset.characteristics[dev.characteristic.GUARD_ENABLED] 
+      log.d("Door Lock guard changed to " .. tostring(door_lock_guard_enabled))
+    end
+  end
+  
+  return changeset  
+end
+
+local function handle_door_locked(changeset)
+  if type(changeset.characteristics[dev.characteristic.DOOR_LOCKED]) == "boolean" then
+    if door_lock_service_enabled == true then
+      if changeset.characteristics[dev.characteristic.DOOR_LOCKED] ~= door_locked then
+        --Change door state as service enabled
+        door_locked = changeset.characteristics[dev.characteristic.DOOR_LOCKED]
+        log.d("Door Locked status changed to " .. tostring(door_locked))
+        if door_lock_guard_enabled == true then
+          msgbus.call('home_guard.device_state_changed', door_locked)
+        end 
+      end  
+    else
+      log.d("Could not change door lock state, when service disabled!!!")
+      --Override door lock state in changeset as its change request rejected
+      changeset.characteristics[dev.characteristic.DOOR_LOCKED] = door_locked 
+    end
+  end  
+  
+  return changeset
+end
+
 local function start()
   local err
 
@@ -67,39 +110,18 @@ local function start()
             end              
           end
         end
-        if changeset.characteristics[dev.characteristic.DOOR_LOCKED] == nil then log.e("DOOR_LOCK characteristic missing") return end
-        if changeset.characteristics[dev.characteristic.ENABLED] == nil then log.e("ENABLED characteristic missing") return end
-        if changeset.characteristics[dev.characteristic.GUARD_ENABLED] == nil then log.e("GUARD_ENABLED characteristic missing") return end
+
+        --Verify door lock id        
         if device_id ~= door_lock_id then log.e("incorrect device id, expected id" .. device_id .. " " .. door_lock_id) return end
         
         --Enabling/Disabling service
-        if changeset.characteristics[dev.characteristic.ENABLED] ~= door_lock_service_enabled then
-          door_lock_service_enabled = changeset.characteristics[dev.characteristic.ENABLED] 
-          log.d("Door Lock service is now" .. tostring(door_lock_service_enabled))
-        end
-
+        changeset = handle_door_lock_service_enabled( changeset )
+  
         --Enabling/Disabling home guard for service
-        if changeset.characteristics[dev.characteristic.GUARD_ENABLED] ~= door_lock_guard_enabled then
-          door_lock_guard_enabled = changeset.characteristics[dev.characteristic.ENABLED] 
-          log.d("Door Lock guard is now" .. tostring(door_lock_guard_enabled))
-        end
+        changeset = handle_guard_enabled( changeset )
         
-        --Controlling door lock only when service enabled
-        if changeset.characteristics[dev.characteristic.DOOR_LOCKED] ~= door_locked then
-          if door_lock_service_enabled == true then
-            log.d("open/close door lock")
-            dl_controller.toggle_door_lock()
-            door_locked = changeset.characteristics[dev.characteristic.DOOR_LOCKED]
-            
-            if door_lock_guard_enabled == true then
-              msgbus.call('home_guard.device_state_changed', door_locked)
-            end 
-          else
-            log.e("Could not change door lock state, when service disabled!!!")
-            --Override door lock state returns 
-            changeset.characteristics[dev.characteristic.DOOR_LOCKED] = door_locked 
-          end
-        end
+        --Control DoorLock
+        changeset = handle_door_locked(changeset)
         
         adapter.device_characteristic_changed(device_id, {characteristics = changeset})
       end,
