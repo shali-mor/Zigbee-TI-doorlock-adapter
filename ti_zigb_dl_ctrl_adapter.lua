@@ -84,8 +84,7 @@ local function handle_door_locked(changeset)
         door_locked = changeset.characteristics[dev.characteristic.DOOR_LOCKED]
         log.d("Door Locked status changed to " .. tostring(door_locked))
         if door_lock_guard_enabled == true then
-          state_change_str = "door locked new state: " .. tostring(door_locked)
-          msgbus.call('home_guard.device_state_changed', state_change_str)
+          msgbus.call('home_guard.device_state_changed', "door locked", tostring(door_locked))
         end 
       end  
     else
