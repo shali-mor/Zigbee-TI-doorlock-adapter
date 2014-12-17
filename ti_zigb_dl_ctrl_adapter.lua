@@ -1,6 +1,6 @@
 local _M = {}
 
-local SIMULATE_DONGLE = false
+local SIMULATE_DONGLE = true
 
 local log = require('rcaf.log')
 local dal = require('rcaf.device_abstraction_layer')
@@ -13,6 +13,7 @@ if SIMULATE_DONGLE == false then
 local CC2531 = require "CC2531Ctr"
 end
 local msgbus = require('rcaf.msgbus')
+local pushover = require('rcaf.PushOver') 
 
 local adapter
 local dl_controller = nil
@@ -21,8 +22,11 @@ local door_locked = true
 local door_lock_service_enabled = false
 local door_lock_guard_enabled = false
 
-local DOOR_LOCK_CONTROLLER_SERIVE_ID = 1
-local DOOR_LOCK_DEVICE_SETTINGS_SERVICE_ID = 3
+local DOOR_LOCK_CONTROLLER_SERIVE_ID = '1'
+local DOOR_LOCK_DEVICE_SETTINGS_SERVICE_ID = '3'
+
+--this value will be used to prvant replay attack
+local seq_num = 0
 
 local function door_lock_connected(door_lock)
   -- build door lock id by idVendor+idProduct+_usb_addr
@@ -38,7 +42,8 @@ local function door_lock_connected(door_lock)
         id = DOOR_LOCK_CONTROLLER_SERIVE_ID,
         type = dev.service.LOCK,
         characteristics = {
-          [dev.characteristic.DOOR_LOCKED] =  door_locked,
+          [dev.characteristic.DOOR_LOCKED] =  door_locked,	  
+	  [dev.characteristic.SEQ_NUM] =  seq_num,
         },
       },
       {
@@ -80,25 +85,41 @@ local function handle_guard_enabled(changeset)
 end
 
 local function handle_door_locked(changeset)
-  if type(changeset.characteristics[dev.characteristic.DOOR_LOCKED]) == "boolean" then
-    if door_lock_service_enabled == true then
-      if changeset.characteristics[dev.characteristic.DOOR_LOCKED] ~= door_locked then
-        --Change door state as service enabled
-        dl_controller.toggle_door_lock()
-        door_locked = changeset.characteristics[dev.characteristic.DOOR_LOCKED]
-        log.d("Door Locked status changed to " .. tostring(door_locked))
-        if door_lock_guard_enabled == true then
-          msgbus.call('home_guard.device_state_changed', "door locked", tostring(door_locked))
-        end 
-      end  
-    else
-      log.d("Could not change door lock state, when service disabled!!!")
-      --Override door lock state in changeset as its change request rejected
-      changeset.characteristics[dev.characteristic.DOOR_LOCKED] = door_locked 
-    end
-  end  
-  
-  return changeset
+   if type(changeset.characteristics[dev.characteristic.DOOR_LOCKED]) == "boolean" then
+      if door_lock_service_enabled == true then
+	 if changeset.characteristics[dev.characteristic.DOOR_LOCKED] ~= door_locked then
+	    do_toggle_door = false
+	    if door_lock_guard_enabled == true then
+	       if seq_num < changeset.characteristics[dev.characteristic.SEQ_NUM] then
+		  do_toggle_door = true
+	       else
+		  --send Push notification - "Replay attack was blocked by homeguard"
+		  pushover.SendMsg('Your home GW is Under Attack - replay attack was blocked by homeguard', "admin")
+	       end
+	    else
+	       do_toggle_door = true
+	    end 
+
+	    if do_toggle_door then
+	       seq_num = seq_num + 1
+	       --Change door state as service enabled
+	       dl_controller.toggle_door_lock()
+	       door_locked = changeset.characteristics[dev.characteristic.DOOR_LOCKED]
+	       log.d("Door Locked status changed to " .. tostring(door_locked) .. " seq_num = " .. tostring(seq_num))	   
+--	       msgbus.call('home_guard.device_state_changed', "door locked", tostring(door_locked))
+	    end	    
+
+	 end  
+      else
+	 log.d("Could not change door lock state, when service disabled!!!")
+	 --Override door lock state in changeset as its change request rejected
+	 changeset.characteristics[dev.characteristic.DOOR_LOCKED] = door_locked 
+      end
+      changeset.characteristics[dev.characteristic.SEQ_NUM] = seq_num 
+
+   end  
+   
+   return changeset
 end
 
 local function start()
