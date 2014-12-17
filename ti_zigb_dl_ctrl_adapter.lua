@@ -1,5 +1,7 @@
 local _M = {}
 
+local SIMULATE_DONGLE = false
+
 local log = require('rcaf.log')
 local dal = require('rcaf.device_abstraction_layer')
 local dev = require('rcaf.device')
@@ -7,7 +9,9 @@ local str = require('rcaf.string_utils')
 local events = require('rcaf.events')
 local ev = require('ev')
 local json = require('cjson')
+if SIMULATE_DONGLE == false then
 local CC2531 = require "CC2531Ctr"
+end
 local msgbus = require('rcaf.msgbus')
 
 local adapter
@@ -145,13 +149,31 @@ local function start()
   ev.Timer.new(
     function(timer, loop, revents)
       if dl_controller == nil then
-        dev_list = CC2531.get_CC2531()
-        if table.getn(dev_list) ~= 0 then
-          dl_controller = CC2531.CC2531(dev_list[1])
-          log.d("Found DoorLock controller")
-          door_lock_connected(dl_controller)
+        if SIMULATE_DONGLE == false then
+          dev_list = CC2531.get_CC2531()
+          if table.getn(dev_list) ~= 0 then
+            dl_controller = CC2531.CC2531(dev_list[1])
+            log.d("Found DoorLock controller")
+            door_lock_connected(dl_controller)
+          else
+            log.d("DoorLock controller not connected")
+          end
         else
-          log.d("DoorLock controller not connected")
+          --Simulator for low level DL controller
+          dl_controller = {}
+          dl_controller._usb_desc = {}
+          
+          dl_controller._usb_desc.idVendor = 0x451
+          dl_controller._usb_desc.idProduct = 0x16a8
+          dl_controller._usb_addr = 1
+          
+          dl_controller.toggle_door_lock = 
+            function ()
+              log.d("Mocked DoorLock state changed");
+              return
+            end
+          
+          door_lock_connected(dl_controller)
         end
       else
         --log.d("DoorLock connected")  
