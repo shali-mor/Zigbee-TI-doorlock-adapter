@@ -94,7 +94,10 @@ local function handle_door_locked(changeset)
 		  do_toggle_door = true
 	       else
 		  --send Push notification - "Replay attack was blocked by homeguard"
-		  pushover.SendMsg('Your home GW is Under Attack - replay attack was blocked by homeguard', "admin")
+--		  pushover.SendMsgToAdmin('Your home GW is Under Attack - replay attack was blocked by homeguard')
+
+
+		  pushover.SendMsgToAdmin('An unauthorised attempt to open your door was identified and blocked by HomeGuard.')
 	       end
 	    else
 	       do_toggle_door = true
@@ -106,7 +109,7 @@ local function handle_door_locked(changeset)
 	       dl_controller.toggle_door_lock()
 	       door_locked = changeset.characteristics[dev.characteristic.DOOR_LOCKED]
 	       log.d("Door Locked status changed to " .. tostring(door_locked) .. " seq_num = " .. tostring(seq_num))	   
---	       msgbus.call('home_guard.device_state_changed', "door locked", tostring(door_locked))
+	       msgbus.call('home_guard.device_state_changed', "door locked", door_locked and "open" or "close")
 	    end	    
 
 	 end  
