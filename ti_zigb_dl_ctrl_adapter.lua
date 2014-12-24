@@ -32,7 +32,9 @@ local seq_num = 0
 
 local function door_lock_connected(door_lock)
   -- build door lock id by idVendor+idProduct+_usb_addr
-  door_lock_id = tostring(door_lock._usb_desc.idVendor) .. ':' .. tostring(door_lock._usb_desc.idProduct) .. ':' .. tostring(door_lock._usb_addr)
+  -- For demo purpose, instead of using _usb_addr number, we are setting hard-coded 1, the original code is commented
+  -- door_lock_id = tostring(door_lock._usb_desc.idVendor) .. ':' .. tostring(door_lock._usb_desc.idProduct) .. ':' .. tostring(door_lock._usb_addr)
+  door_lock_id = tostring(door_lock._usb_desc.idVendor) .. ':' .. tostring(door_lock._usb_desc.idProduct) .. ':' .. tostring(1)
   -- if we got here, the door lock is online
   local status = dev.status.ONLINE
   local vendor = "TI"
