@@ -1,5 +1,7 @@
 local _M = {}
 
+local CC2531
+
 local SIMULATE_DONGLE = false
 
 local log = require('rcaf.log')
@@ -10,7 +12,7 @@ local events = require('rcaf.events')
 local ev = require('ev')
 local json = require('cjson')
 if SIMULATE_DONGLE == false then
-local CC2531 = require "CC2531Ctr"
+CC2531 = require "CC2531Ctr"
 end
 local msgbus = require('rcaf.msgbus')
 
