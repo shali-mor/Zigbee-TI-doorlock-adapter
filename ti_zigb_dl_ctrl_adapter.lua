@@ -47,8 +47,11 @@ local function door_lock_connected(door_lock)
         type = dev.service.LOCK,
         characteristics = {
           [dev.characteristic.DOOR_LOCKED] =  door_locked,	  
-	  --put the expected seq_num in the returned json
-	  [dev.characteristic.SEQ_NUM] =  seq_num + 1,
+
+	  if door_lock_guard_enabled then
+	     --put the expected seq_num in the returned json only if homeguard is on
+	     [dev.characteristic.SEQ_NUM] =  seq_num + 1,
+	  end
         },
       },
       {
@@ -123,8 +126,10 @@ local function handle_door_locked(changeset)
 	 --Override door lock state in changeset as its change request rejected
 	 changeset.characteristics[dev.characteristic.DOOR_LOCKED] = door_locked 
       end
-      --put the expected seq_num in the returned json
-      changeset.characteristics[dev.characteristic.SEQ_NUM] = seq_num + 1 
+      if door_lock_guard_enabled then
+	 --put the expected seq_num in the returned json only if homeguard is on
+	 changeset.characteristics[dev.characteristic.SEQ_NUM] = seq_num + 1 
+      end
 
    end  
    
