@@ -47,11 +47,8 @@ local function door_lock_connected(door_lock)
         type = dev.service.LOCK,
         characteristics = {
           [dev.characteristic.DOOR_LOCKED] =  door_locked,	  
-
-	  if door_lock_guard_enabled then
-	     --put the expected seq_num in the returned json only if homeguard is on
-	     [dev.characteristic.SEQ_NUM] =  seq_num + 1,
-	  end
+	  --put the expected seq_num in the returned json
+	  [dev.characteristic.SEQ_NUM] =  seq_num + 1,
         },
       },
       {
@@ -95,44 +92,42 @@ end
 local function handle_door_locked(changeset)
    if type(changeset.characteristics[dev.characteristic.DOOR_LOCKED]) == "boolean" then
       if door_lock_service_enabled == true then
-	 if changeset.characteristics[dev.characteristic.DOOR_LOCKED] ~= door_locked then
-	    do_toggle_door = false
-	    if door_lock_guard_enabled == true then
-	       if seq_num < changeset.characteristics[dev.characteristic.SEQ_NUM] then
-		  do_toggle_door = true
-	       else
-		  --send Push notification - "Replay attack was blocked by homeguard"
---		  pushover.SendMsgToAdmin('Your home GW is Under Attack - replay attack was blocked by homeguard')
-
-
-		  pushover.SendMsgToAdmin('An unauthorised attempt to open your door was identified and blocked by HomeGuard.')
-	       end
-	    else
+	 do_toggle_door = false
+	 if door_lock_guard_enabled == true then
+	    if seq_num < changeset.characteristics[dev.characteristic.SEQ_NUM] then
 	       do_toggle_door = true
-	    end 
+	    else
+	       pushover.SendMsgToAdmin('An unauthorised attempt to open your door was identified and blocked by HomeGuard.')
+	       log.d("Do not change door lock state when HomeGuard is on and seq_num is wrong!!!")                                                           
+	       --Override door lock state in changeset as its change request rejected                                                                   
+	       changeset.characteristics[dev.characteristic.DOOR_LOCKED] = door_locked 
+	    end
+	 else
+	    do_toggle_door = true
+	 end 
 
-	    if do_toggle_door then
-	       seq_num = seq_num + 1
-	       --Change door state as service enabled
-	       dl_controller.toggle_door_lock()
-	       door_locked = changeset.characteristics[dev.characteristic.DOOR_LOCKED]
-	       log.d("Door Locked status changed to " .. tostring(door_locked) .. " seq_num = " .. tostring(seq_num))	   
-	       msgbus.call('home_guard.device_state_changed', "door locked", door_locked and "open" or "close")
-	    end	    
-
-	 end  
+	 if do_toggle_door and changeset.characteristics[dev.characteristic.DOOR_LOCKED] ~= door_locked then	    
+	    log.d("door_locked state is already " .. tostring(door_locked)) 
+	    do_toggle_door = false	    
+	 end 
+	 
+	 if do_toggle_door then
+	    seq_num = seq_num + 1
+	    --Change door state as service enabled
+	    dl_controller.toggle_door_lock()
+	    door_locked = changeset.characteristics[dev.characteristic.DOOR_LOCKED]
+	    log.d("Door Locked status changed to " .. tostring(door_locked) .. " seq_num = " .. tostring(seq_num))	   
+	    msgbus.call('home_guard.device_state_changed', "door locked", door_locked and "open" or "close")
+	 end	    
+	 
       else
 	 log.d("Could not change door lock state, when service disabled!!!")
 	 --Override door lock state in changeset as its change request rejected
 	 changeset.characteristics[dev.characteristic.DOOR_LOCKED] = door_locked 
       end
-      if door_lock_guard_enabled then
-	 --put the expected seq_num in the returned json only if homeguard is on
-	 changeset.characteristics[dev.characteristic.SEQ_NUM] = seq_num + 1 
-      end
-
-   end  
-   
+      --put the expected seq_num in the returned json
+      changeset.characteristics[dev.characteristic.SEQ_NUM] = seq_num + 1 
+   end      
    return changeset
 end
 
