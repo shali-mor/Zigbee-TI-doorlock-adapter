@@ -106,7 +106,7 @@ local function handle_door_locked(changeset)
 	    do_toggle_door = true
 	 end 
 
-	 if do_toggle_door and changeset.characteristics[dev.characteristic.DOOR_LOCKED] ~= door_locked then	    
+	 if do_toggle_door and changeset.characteristics[dev.characteristic.DOOR_LOCKED] == door_locked then	    
 	    log.d("door_locked state is already " .. tostring(door_locked)) 
 	    do_toggle_door = false	    
 	 end 
