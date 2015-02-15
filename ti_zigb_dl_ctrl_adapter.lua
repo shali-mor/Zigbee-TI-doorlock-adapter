@@ -89,7 +89,8 @@ local function handle_door_locked(changeset)
 	    if seq_num < changeset.characteristics[dev.characteristic.SEQ_NUM] then
 	       do_toggle_door = true
 	    else
-	       pushover.SendMsgToAdmin('An unauthorised attempt to open your door was identified and blocked by HomeGuard.')
+--	       pushover.SendMsgToAdmin('An unauthorised attempt to open your door was identified and blocked by HomeGuard.')
+	       msgbus.call('rcaf.homeguard.sendPushOver','An unauthorised attempt...','An unauthorised attempt to open your door was identified and blocked by HomeGuard.',"ALERT")
 	       log.d("Do not change door lock state when HomeGuard is on and seq_num is wrong!!!")                                                           
 	       --Override door lock state in changeset as its change request rejected                                                                   
 	       changeset.characteristics[dev.characteristic.DOOR_LOCKED] = door_locked 
