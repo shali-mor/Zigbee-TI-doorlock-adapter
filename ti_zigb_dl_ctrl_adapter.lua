@@ -2,7 +2,7 @@ local _M = {}
 
 local CC2531
 
-local SIMULATE_DONGLE = false
+local SIMULATE_DONGLE = true
 
 local log = require('rcaf.log')
 local dal = require('rcaf.device_abstraction_layer')
@@ -21,14 +21,18 @@ local adapter
 local dl_controller = nil
 local door_lock_id = nil
 local door_locked = true
-local door_lock_service_enabled = false
-local door_lock_guard_enabled = false
+local door_lock_service_enabled = true
 
 local DOOR_LOCK_CONTROLLER_SERIVE_ID = '1'
 local DOOR_LOCK_DEVICE_SETTINGS_SERVICE_ID = '3'
 
 --this value will be used to prvant replay attack
 local seq_num = 0
+
+local function is_homeguard_enabled()
+   err, ret = msgbus.call("rcaf.homeguard.is_enabled")
+   return ret
+end
 
 local function door_lock_connected(door_lock)
   -- build door lock id by idVendor+idProduct+_usb_addr
@@ -56,7 +60,6 @@ local function door_lock_connected(door_lock)
         type = dev.service.DEVICE_SETTINGS,
         characteristics = {
           [dev.characteristic.ENABLED] =  door_lock_service_enabled,
-          [dev.characteristic.GUARD_ENABLED] =  door_lock_guard_enabled,
         },
       },
     },
@@ -78,22 +81,11 @@ local function handle_door_lock_service_enabled(changeset)
   return changeset
 end
 
-local function handle_guard_enabled(changeset)
-  if type(changeset.characteristics[dev.characteristic.GUARD_ENABLED]) == "boolean" then
-    if door_lock_guard_enabled ~= changeset.characteristics[dev.characteristic.GUARD_ENABLED] then
-      door_lock_guard_enabled = changeset.characteristics[dev.characteristic.GUARD_ENABLED] 
-      log.d("Door Lock guard changed to " .. tostring(door_lock_guard_enabled))
-    end
-  end
-  
-  return changeset  
-end
-
 local function handle_door_locked(changeset)
    if type(changeset.characteristics[dev.characteristic.DOOR_LOCKED]) == "boolean" then
       if door_lock_service_enabled == true then
 	 do_toggle_door = false
-	 if door_lock_guard_enabled == true then
+	 if is_homeguard_enabled() then
 	    if seq_num < changeset.characteristics[dev.characteristic.SEQ_NUM] then
 	       do_toggle_door = true
 	    else
