@@ -144,10 +144,7 @@ local function start()
         
         --Enabling/Disabling service
         changeset = handle_door_lock_service_enabled( changeset )
-  
-        --Enabling/Disabling home guard for service
-        changeset = handle_guard_enabled( changeset )
-        
+          
         --Control DoorLock
         changeset = handle_door_locked(changeset)
         
