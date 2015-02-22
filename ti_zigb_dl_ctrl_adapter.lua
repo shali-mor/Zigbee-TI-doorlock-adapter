@@ -2,7 +2,7 @@ local _M = {}
 
 local CC2531
 
-local SIMULATE_DONGLE = true
+local SIMULATE_DONGLE = false
 
 local log = require('rcaf.log')
 local dal = require('rcaf.device_abstraction_layer')
